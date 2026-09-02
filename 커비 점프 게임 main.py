@@ -50,8 +50,8 @@ kirby_game_html = """
             border-radius: 50%;
             border: 2px solid #e0738d;
             box-sizing: border-box;
+            z-index: 10;
         }
-        /* 커비 눈 (왼쪽, 오른쪽) */
         #kirby::before, #kirby::after {
             content: '';
             position: absolute;
@@ -64,7 +64,6 @@ kirby_game_html = """
         #kirby::before { left: 20px; }
         #kirby::after { left: 28px; }
         
-        /* 커비 볼터치 */
         .blush {
             position: absolute;
             top: 20px;
@@ -76,28 +75,42 @@ kirby_game_html = """
         .blush-left { left: 16px; }
         .blush-right { left: 31px; }
 
-        /* 커비 신발 */
         .feet {
             position: absolute;
             bottom: -4px;
             left: 6px;
             width: 24px;
             height: 8px;
-            background-color: #d11a45; /* 빨간 신발 */
+            background-color: #d11a45;
             border-radius: 10px;
             z-index: -1;
         }
 
-        /* --- 장애물 및 환경 --- */
-        #obstacle {
+        /* --- 장애물 디자인 --- */
+        .obstacle {
             position: absolute;
+            box-sizing: border-box;
+        }
+        
+        /* 지상 장애물 */
+        .ground-obstacle {
             bottom: 10px;
-            right: -30px;
             width: 20px;
             height: 40px;
             background-color: #535353;
             border-radius: 4px;
         }
+        
+        /* 공중 장애물 (하늘) */
+        .air-obstacle {
+            bottom: 75px; /* 점프하지 않거나 낮은 점프로 피하는 높이 */
+            width: 30px;
+            height: 25px;
+            background-color: #87ceeb;
+            border: 2px solid #4682b4;
+            border-radius: 50% 50% 10% 10%;
+        }
+
         #ground {
             position: absolute;
             bottom: 0;
@@ -121,6 +134,7 @@ kirby_game_html = """
             transform: translate(-50%, -50%);
             text-align: center;
             color: #535353;
+            z-index: 20;
         }
         #game-over h2 {
             margin: 0 0 10px 0;
@@ -143,7 +157,7 @@ kirby_game_html = """
         <div class="feet"></div>
     </div>
     
-    <div id="obstacle"></div>
+    <div id="obstacle" class="obstacle ground-obstacle"></div>
     <div id="ground"></div>
     <div id="game-over">
         <h2>G A M E  O V E R</h2>
@@ -170,7 +184,7 @@ kirby_game_html = """
         let jumpHeight = 0;
         
         let upInterval = setInterval(() => {
-            if (jumpHeight >= 100) {
+            if (jumpHeight >= 110) {
                 clearInterval(upInterval);
                 let downInterval = setInterval(() => {
                     if (jumpHeight <= 0) {
@@ -186,26 +200,51 @@ kirby_game_html = """
         }, 12);
     }
 
+    function respawnObstacle() {
+        obstaclePosition = 600 + Math.random() * 150;
+        
+        // 무작위로 지상/공중 장애물 타입 선택
+        const isAir = Math.random() > 0.5;
+        if (isAir) {
+            obstacle.className = "obstacle air-obstacle";
+        } else {
+            obstacle.className = "obstacle ground-obstacle";
+        }
+    }
+
+    function checkCollision() {
+        const kirbyRect = kirby.getBoundingClientRect();
+        const obstacleRect = obstacle.getBoundingClientRect();
+
+        // 여유 범위를 가미한 바운딩 박스 충돌 판정
+        const margin = 5; 
+        return !(
+            kirbyRect.right - margin < obstacleRect.left ||
+            kirbyRect.left + margin > obstacleRect.right ||
+            kirbyRect.bottom - margin < obstacleRect.top ||
+            kirbyRect.top + margin > obstacleRect.bottom
+        );
+    }
+
     function updateGame() {
         if (isGameOver) return;
 
+        // 시간에 따른 지속적 속도 증가 (최대 속도 제한: 16)
+        if (gameSpeed < 16) {
+            gameSpeed += 0.003;
+        }
+
         // 장애물 이동
         obstaclePosition -= gameSpeed;
-        if (obstaclePosition < -20) {
-            obstaclePosition = 600 + Math.random() * 200;
+        if (obstaclePosition < -40) {
+            respawnObstacle();
             score += 10;
-            scoreElement.innerText = score;
-            
-            if (score % 50 === 0 && gameSpeed < 12) {
-                gameSpeed += 0.5;
-            }
+            scoreElement.innerText = Math.floor(score);
         }
         obstacle.style.right = (600 - obstaclePosition) + "px";
 
-        // 충돌 감지
-        let kirbyBottom = parseInt(window.getComputedStyle(kirby).getPropertyValue("bottom"));
-        
-        if (obstaclePosition > 50 && obstaclePosition < 90 && kirbyBottom <= 45) {
+        // 충돌 검사
+        if (checkCollision()) {
             endGame();
         }
     }
@@ -220,14 +259,14 @@ kirby_game_html = """
         isGameOver = false;
         score = 0;
         gameSpeed = 5;
-        obstaclePosition = 600;
         scoreElement.innerText = score;
         gameOverElement.style.display = "none";
         kirby.style.bottom = "10px";
+        respawnObstacle();
         gameLoop = setInterval(updateGame, 20);
     }
 
-    // 키보드 입력
+    // 키보드 입력 설정
     document.addEventListener("keydown", function(event) {
         if (event.code === "Space" || event.code === "ArrowUp") {
             event.preventDefault();
@@ -251,6 +290,8 @@ components.html(kirby_game_html, height=250)
 
 st.markdown("---")
 st.markdown("""
-**🎮 게임 조작 방법:**
+**🎮 게임 조작 및 규칙:**
 - **점프 / 게임 시작**: `Space` 키 또는 `↑` 방향키
+- **시간이 지날수록** 장애물의 이동 속도가 빨라집니다.
+- **공중 장애물**이 등장할 때는 점프 타이밍을 잘 맞추어야 피할 수 있습니다.
 """)
