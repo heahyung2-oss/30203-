@@ -103,7 +103,7 @@ kirby_game_html = """
         
         /* 공중 장애물 (하늘) */
         .air-obstacle {
-            bottom: 75px; /* 점프하지 않거나 낮은 점프로 피하는 높이 */
+            bottom: 75px;
             width: 30px;
             height: 25px;
             background-color: #87ceeb;
@@ -203,7 +203,7 @@ kirby_game_html = """
     function respawnObstacle() {
         obstaclePosition = 600 + Math.random() * 150;
         
-        // 무작위로 지상/공중 장애물 타입 선택
+        // 무작위로 지상/공중 장애물 선택
         const isAir = Math.random() > 0.5;
         if (isAir) {
             obstacle.className = "obstacle air-obstacle";
@@ -216,7 +216,6 @@ kirby_game_html = """
         const kirbyRect = kirby.getBoundingClientRect();
         const obstacleRect = obstacle.getBoundingClientRect();
 
-        // 여유 범위를 가미한 바운딩 박스 충돌 판정
         const margin = 5; 
         return !(
             kirbyRect.right - margin < obstacleRect.left ||
@@ -229,7 +228,7 @@ kirby_game_html = """
     function updateGame() {
         if (isGameOver) return;
 
-        // 시간에 따른 지속적 속도 증가 (최대 속도 제한: 16)
+        // 시간에 따른 속도 증가 (최대 16)
         if (gameSpeed < 16) {
             gameSpeed += 0.003;
         }
