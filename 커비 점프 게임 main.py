@@ -11,7 +11,7 @@ st.set_page_config(
 st.title("⭐ 커비 점프 게임")
 st.caption("스페이스바(Space) 또는 위쪽 화살표(↑) 키를 눌러 점프하세요!")
 
-# HTML/JS 기반 커비 게임 코드 (파이썬 멀티라인 스크링)
+# HTML/JS 기반 커비 게임 코드
 kirby_game_html = """<!DOCTYPE html>
 <html>
 <head>
@@ -28,20 +28,74 @@ kirby_game_html = """<!DOCTYPE html>
             font-family: monospace;
             user-select: none;
         }
+        
+        /* --- 배경 및 게임 컨테이너 설정 (푸른 초원) --- */
         #game-container {
             position: relative;
             width: 600px;
             height: 200px;
-            background-color: #fff;
-            border: 2px solid #535353;
+            /* 푸른 하늘 그라데이션 */
+            background: linear-gradient(to bottom, #70c5ce 0%, #b1e5eb 70%, #d8f3f5 100%);
+            border: 2px solid #3a7d44;
             overflow: hidden;
             border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        /* 배경 구름 */
+        .cloud {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 20px;
+            opacity: 0.8;
+        }
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: #ffffff;
+            border-radius: 50%;
+        }
+        .cloud-1 {
+            top: 20px; left: 80px; width: 60px; height: 18px;
+        }
+        .cloud-1::before { width: 25px; height: 25px; top: -10px; left: 10px; }
+        .cloud-1::after { width: 20px; height: 20px; top: -6px; left: 28px; }
+
+        .cloud-2 {
+            top: 35px; left: 380px; width: 80px; height: 22px;
+        }
+        .cloud-2::before { width: 32px; height: 32px; top: -14px; left: 15px; }
+        .cloud-2::after { width: 24px; height: 24px; top: -8px; left: 38px; }
+
+        /* 멀리 보이는 언덕/산 */
+        .hill {
+            position: absolute;
+            bottom: 15px;
+            width: 200px;
+            height: 60px;
+            background-color: #8ed172;
+            border-radius: 50% 50% 0 0;
+            z-index: 1;
+        }
+        .hill-1 { left: -30px; }
+        .hill-2 { left: 220px; width: 280px; height: 80px; background-color: #7bc45f; }
+        .hill-3 { left: 450px; }
+
+        /* 바닥 (잔디밭) */
+        #ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 16px;
+            background-color: #5bb343; /* 풀밭 녹색 */
+            border-top: 3px solid #3e8e2b; /* 짙은 잔디 테두리 */
+            z-index: 5;
         }
         
-        /* 커비 디자인 */
+        /* --- 커비(Kirby) 디자인 --- */
         #kirby {
             position: absolute;
-            bottom: 10px;
+            bottom: 16px;
             left: 50px;
             width: 40px;
             height: 40px;
@@ -85,15 +139,16 @@ kirby_game_html = """<!DOCTYPE html>
             z-index: -1;
         }
 
-        /* 장애물 디자인 */
+        /* --- 장애물 디자인 --- */
         .obstacle {
             position: absolute;
             box-sizing: border-box;
+            z-index: 10;
         }
         
         /* 지상 장애물 (버섯) */
         .ground-obstacle {
-            bottom: 10px;
+            bottom: 16px;
             width: 30px;
             height: 30px;
             background-color: #f00;
@@ -124,7 +179,7 @@ kirby_game_html = """<!DOCTYPE html>
         
         /* 공중 장애물 (드래곤) */
         .air-obstacle {
-            bottom: 75px;
+            bottom: 80px;
             width: 40px;
             height: 30px;
             background-color: #444;
@@ -152,20 +207,14 @@ kirby_game_html = """<!DOCTYPE html>
             border-radius: 2px;
         }
 
-        #ground {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 10px;
-            background-color: #535353;
-        }
         #score-board {
             position: absolute;
             top: 10px;
             right: 15px;
             font-size: 16px;
             font-weight: bold;
-            color: #535353;
+            color: #2d5a27;
+            z-index: 20;
         }
         #heart-board {
             position: absolute;
@@ -173,6 +222,7 @@ kirby_game_html = """<!DOCTYPE html>
             left: 15px;
             font-size: 20px;
             color: #f00;
+            z-index: 20;
         }
         #game-over {
             display: none;
@@ -181,8 +231,12 @@ kirby_game_html = """<!DOCTYPE html>
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            color: #535353;
-            z-index: 20;
+            color: #2d5a27;
+            z-index: 30;
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 2px solid #2d5a27;
         }
         #game-over h2 {
             margin: 0 0 10px 0;
@@ -197,6 +251,14 @@ kirby_game_html = """<!DOCTYPE html>
 <body>
 
 <div id="game-container">
+    <!-- 초원 배경 요소들 -->
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="hill hill-1"></div>
+    <div class="hill hill-2"></div>
+    <div class="hill hill-3"></div>
+
+    <!-- 인터페이스 및 캐릭터 -->
     <div id="heart-board"><span id="hearts">❤️❤️</span></div>
     <div id="score-board">SCORE: <span id="score">0</span></div>
     
@@ -243,11 +305,11 @@ kirby_game_html = """<!DOCTYPE html>
                         isJumping = false;
                     }
                     jumpHeight -= 5;
-                    kirby.style.bottom = (10 + jumpHeight) + "px";
+                    kirby.style.bottom = (16 + jumpHeight) + "px";
                 }, 12);
             }
             jumpHeight += 6;
-            kirby.style.bottom = (10 + jumpHeight) + "px";
+            kirby.style.bottom = (16 + jumpHeight) + "px";
         }, 12);
     }
 
@@ -313,7 +375,7 @@ kirby_game_html = """<!DOCTYPE html>
         scoreElement.innerText = score;
         heartsElement.innerText = "❤️❤️";
         gameOverElement.style.display = "none";
-        kirby.style.bottom = "10px";
+        kirby.style.bottom = "16px";
         respawnObstacle();
         gameLoop = setInterval(updateGame, 20);
     }
@@ -342,7 +404,7 @@ st.markdown("---")
 st.markdown("""
 **🎮 게임 조작 및 규칙:**
 - **점프 / 게임 시작**: `Space` 키 또는 `↑` 방향키
-- **시간 지남에 따른 가속**: 게임 진행 시간에 따라 난이도가 점점 상승합니다.
-- **체력(하트)**: 장애물 충돌 시 하트(❤️)가 1개 차감되며 부활합니다. (기본 2개)
-- **장애물 종류**: 지상(마리오 버섯), 공중(드래곤) 무작위 등장
+- **시간 지남에 따른 가속**: 게임 진행 시간에 따라 난이도가 상승합니다.
+- **체력(하트)**: 장애물 충돌 시 하트(❤️)가 1개 차감되며 부활합니다.
+- **장애물**: 지상(마리오 버섯), 공중(드래곤) 무작위 등장
 """)
