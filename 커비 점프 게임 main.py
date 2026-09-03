@@ -1,9 +1,17 @@
+import streamlit as st
+import streamlit.components.v1 as components
+
+# 페이지 기본 설정
+st.set_page_config(page_title="커비 점프 게임", layout="wide")
+
+# HTML/CSS/JS 코드를 문자열 변수로 담기
+html_code = """
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>커비 점프 게임 (Kirby Jump Deluxe)</title>
+    <title>커비 점프 게임</title>
     <style>
         * {
             box-sizing: border-box;
@@ -34,7 +42,6 @@
             transition: background 2s ease;
         }
 
-        /* 배경 테마 설정 */
         #game-container.sunset {
             background: linear-gradient(to bottom, #FD5E53, #FFC0CB);
         }
@@ -43,7 +50,6 @@
             background: linear-gradient(to bottom, #0F2027, #203A43);
         }
 
-        /* 바닥 땅 */
         #ground {
             position: absolute;
             bottom: 0;
@@ -53,7 +59,6 @@
             border-top: 6px solid #82c91e;
         }
 
-        /* 커비 캐릭터 */
         #kirby {
             position: absolute;
             bottom: 60px;
@@ -66,7 +71,6 @@
             transition: height 0.1s, border-radius 0.1s;
         }
 
-        /* 커비 눈 & 볼터치 디자인 */
         #kirby::before {
             content: '';
             position: absolute;
@@ -91,7 +95,6 @@
             box-shadow: -22px 0 0 #ff1744;
         }
 
-        /* 커비 상태 연출 */
         .duck {
             height: 30px !important;
             border-radius: 20px !important;
@@ -112,7 +115,6 @@
             100% { background-color: #ff9ebb; }
         }
 
-        /* 장애물 & 아이템 공통 */
         .entity {
             position: absolute;
             display: flex;
@@ -149,7 +151,6 @@
             height: 35px;
         }
 
-        /* HUD 및 안내 화면 */
         #hud {
             position: absolute;
             top: 15px;
@@ -232,7 +233,6 @@
     </div>
 
     <script>
-        // Web Audio API 안전하게 초기화
         let audioCtx = null;
 
         function initAudio() {
@@ -284,7 +284,6 @@
             }
         }
 
-        // 게임 요소 선택
         const container = document.getElementById('game-container');
         const kirby = document.getElementById('kirby');
         const livesEl = document.getElementById('lives');
@@ -294,7 +293,6 @@
         const overlayTitle = document.getElementById('overlay-title');
         const overlayDesc = document.getElementById('overlay-desc');
 
-        // 게임 변수
         let isPlaying = false;
         let score = 0;
         let highScore = localStorage.getItem('kirby_high_score') || 0;
@@ -313,7 +311,6 @@
         let gameLoopId = null;
         let spawnTimer = 0;
 
-        // 키 상태 제어
         const keys = {};
 
         window.addEventListener('keydown', (e) => {
@@ -338,12 +335,10 @@
         });
 
         function startGame() {
-            initAudio(); // 브라우저 차단 정책 해제를 위해 버튼 클릭 시 오디오 활성화
+            initAudio();
 
-            // 이전 애니메이션 루프 종료
             if (gameLoopId) cancelAnimationFrame(gameLoopId);
 
-            // 데이터 초기화
             isPlaying = true;
             score = 0;
             lives = 3;
@@ -365,7 +360,6 @@
         function gameLoop() {
             if (!isPlaying) return;
 
-            // 1. 커비 물리엔진 및 동작
             if (keys['ArrowDown'] && positionY === 0) {
                 isDucking = true;
                 kirby.classList.add('duck');
@@ -385,7 +379,6 @@
 
             kirby.style.bottom = (60 + positionY) + 'px';
 
-            // 2. 점수 증가 및 테마 스타일 변경
             score++;
             scoreEl.textContent = score;
 
@@ -397,14 +390,12 @@
                 container.className = '';
             }
 
-            // 3. 엔티티(장애물/아이템) 생성
             spawnTimer++;
             if (spawnTimer > 80 + Math.random() * 60) {
                 spawnEntity();
                 spawnTimer = 0;
             }
 
-            // 4. 엔티티 이동 및 충돌 체크
             const kirbyRect = kirby.getBoundingClientRect();
 
             for (let i = entities.length - 1; i >= 0; i--) {
@@ -414,7 +405,6 @@
 
                 const entRect = ent.el.getBoundingClientRect();
 
-                // 충돌 히트박스 보정
                 const isColliding = !(
                     kirbyRect.right - 10 < entRect.left ||
                     kirbyRect.left + 10 > entRect.right ||
@@ -442,7 +432,6 @@
                     }
                 }
 
-                // 화면 왼쪽 밖으로 빠져나간 객체 삭제
                 if (ent.x < -50) {
                     ent.el.remove();
                     entities.splice(i, 1);
@@ -532,3 +521,7 @@
     </script>
 </body>
 </html>
+"""
+
+# Streamlit에 컴포넌트로 출력
+components.html(html_code, height=450)
