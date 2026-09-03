@@ -63,7 +63,7 @@
             background-color: #ff9ebb;
             border: 3px solid #ff4081;
             border-radius: 50%;
-            transition: transform 0.1s;
+            transition: height 0.1s, border-radius 0.1s;
         }
 
         /* 커비 눈 & 볼터치 디자인 */
@@ -232,44 +232,59 @@
     </div>
 
     <script>
-        // 오디오 효과음 생성기 (Web Audio API)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSound(type) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
+        // Web Audio API 안전하게 초기화
+        let audioCtx = null;
 
-            const now = audioCtx.currentTime;
-
-            if (type === 'jump') {
-                osc.frequency.setValueAtTime(300, now);
-                osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
-                osc.start(now);
-                osc.stop(now + 0.15);
-            } else if (type === 'item') {
-                osc.frequency.setValueAtTime(523, now); // C5
-                osc.frequency.setValueAtTime(659, now + 0.08); // E5
-                osc.frequency.setValueAtTime(783, now + 0.16); // G5
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
-                osc.start(now);
-                osc.stop(now + 0.25);
-            } else if (type === 'hit') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.linearRampToValueAtTime(60, now + 0.2);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-                osc.start(now);
-                osc.stop(now + 0.2);
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
         }
 
-        // 게임 변수
+        function playSound(type) {
+            if (!audioCtx) return;
+
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'jump') {
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'item') {
+                    osc.frequency.setValueAtTime(523, now);
+                    osc.frequency.setValueAtTime(659, now + 0.08);
+                    osc.frequency.setValueAtTime(783, now + 0.16);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'hit') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(60, now + 0.2);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {
+                console.warn("오디오 재생 실패:", e);
+            }
+        }
+
+        // 게임 요소 선택
         const container = document.getElementById('game-container');
         const kirby = document.getElementById('kirby');
         const livesEl = document.getElementById('lives');
@@ -279,6 +294,7 @@
         const overlayTitle = document.getElementById('overlay-title');
         const overlayDesc = document.getElementById('overlay-desc');
 
+        // 게임 변수
         let isPlaying = false;
         let score = 0;
         let highScore = localStorage.getItem('kirby_high_score') || 0;
@@ -294,21 +310,23 @@
         let isBlinking = false;
 
         let entities = [];
-        let gameLoopId;
+        let gameLoopId = null;
         let spawnTimer = 0;
 
-        // 키보드 조작 이벤트
+        // 키 상태 제어
         const keys = {};
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 e.preventDefault();
-                if (isPlaying && jumpCount < 2) {
+                if (isPlaying && jumpCount < 2 && !e.repeat) {
                     velocityY = 13;
                     jumpCount++;
                     playSound('jump');
                 }
             }
             if (e.code === 'ArrowDown') {
+                e.preventDefault();
                 keys['ArrowDown'] = true;
             }
         });
@@ -320,7 +338,12 @@
         });
 
         function startGame() {
-            // 초기화
+            initAudio(); // 브라우저 차단 정책 해제를 위해 버튼 클릭 시 오디오 활성화
+
+            // 이전 애니메이션 루프 종료
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+            // 데이터 초기화
             isPlaying = true;
             score = 0;
             lives = 3;
@@ -342,7 +365,7 @@
         function gameLoop() {
             if (!isPlaying) return;
 
-            // 1. 커비 물리 엔진 & 상태
+            // 1. 커비 물리엔진 및 동작
             if (keys['ArrowDown'] && positionY === 0) {
                 isDucking = true;
                 kirby.classList.add('duck');
@@ -362,7 +385,7 @@
 
             kirby.style.bottom = (60 + positionY) + 'px';
 
-            // 2. 점수 상승 & 테마 변경
+            // 2. 점수 증가 및 테마 스타일 변경
             score++;
             scoreEl.textContent = score;
 
@@ -381,7 +404,7 @@
                 spawnTimer = 0;
             }
 
-            // 4. 엔티티 이동 및 충돌 처리
+            // 4. 엔티티 이동 및 충돌 체크
             const kirbyRect = kirby.getBoundingClientRect();
 
             for (let i = entities.length - 1; i >= 0; i--) {
@@ -391,10 +414,10 @@
 
                 const entRect = ent.el.getBoundingClientRect();
 
-                // 충돌 판정 (여백을 두어 약간 더 부드럽게)
+                // 충돌 히트박스 보정
                 const isColliding = !(
-                    kirbyRect.right - 8 < entRect.left ||
-                    kirbyRect.left + 8 > entRect.right ||
+                    kirbyRect.right - 10 < entRect.left ||
+                    kirbyRect.left + 10 > entRect.right ||
                     kirbyRect.bottom - 5 < entRect.top ||
                     kirbyRect.top + 5 > entRect.bottom
                 );
@@ -419,7 +442,7 @@
                     }
                 }
 
-                // 화면 밖으로 나가면 삭제
+                // 화면 왼쪽 밖으로 빠져나간 객체 삭제
                 if (ent.x < -50) {
                     ent.el.remove();
                     entities.splice(i, 1);
@@ -435,24 +458,20 @@
             el.className = 'entity';
 
             let type = 'obstacle';
-            let speed = 6 + Math.min(score / 300, 6); // 점수가 높을수록 가속
+            let speed = 6 + Math.min(score / 300, 6);
 
             if (rand < 0.4) {
-                // 지상 장애물
                 el.classList.add('obstacle-ground');
                 el.textContent = '🌵';
             } else if (rand < 0.7) {
-                // 공중 장애물 (엎드려서 피함)
                 el.classList.add('obstacle-air');
                 el.textContent = '🦇';
             } else if (rand < 0.88) {
-                // 사탕 (점수 아이템)
                 type = 'candy';
                 el.classList.add('item-candy');
                 el.style.bottom = (80 + Math.random() * 80) + 'px';
                 el.textContent = '🍬';
             } else {
-                // 별 (무적 아이템)
                 type = 'star';
                 el.classList.add('item-star');
                 el.style.bottom = (100 + Math.random() * 60) + 'px';
@@ -482,7 +501,6 @@
             if (lives <= 0) {
                 gameOver();
             } else {
-                // 피격 후 잠시 무적(깜빡임)
                 isBlinking = true;
                 kirby.classList.add('blink');
                 setTimeout(() => {
@@ -498,7 +516,7 @@
 
         function gameOver() {
             isPlaying = false;
-            cancelAnimationFrame(gameLoopId);
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
 
             if (score > highScore) {
                 highScore = score;
