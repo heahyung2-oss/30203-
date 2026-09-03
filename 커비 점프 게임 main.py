@@ -1,410 +1,516 @@
-import streamlit as st
-import streamlit.components.v1 as components
-
-# 페이지 기본 설정
-st.set_page_config(
-    page_title="스트림릿 커비 점프 게임",
-    page_icon="⭐",
-    layout="centered"
-)
-
-st.title("⭐ 커비 점프 게임")
-st.caption("스페이스바(Space) 또는 위쪽 화살표(↑) 키를 눌러 점프하세요!")
-
-# HTML/JS 기반 커비 게임 코드
-kirby_game_html = """<!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>커비 점프 게임 (Kirby Jump Deluxe)</title>
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            background-color: #f7f7f7;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: monospace;
             user-select: none;
         }
-        
-        /* --- 배경 및 게임 컨테이너 설정 (푸른 초원) --- */
+
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
         #game-container {
             position: relative;
-            width: 600px;
-            height: 200px;
-            /* 푸른 하늘 그라데이션 */
-            background: linear-gradient(to bottom, #70c5ce 0%, #b1e5eb 70%, #d8f3f5 100%);
-            border: 2px solid #3a7d44;
+            width: 800px;
+            height: 400px;
             overflow: hidden;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+            transition: background 2s ease;
         }
 
-        /* 배경 구름 */
-        .cloud {
-            position: absolute;
-            background: #ffffff;
-            border-radius: 20px;
-            opacity: 0.8;
+        /* 배경 테마 설정 */
+        #game-container.sunset {
+            background: linear-gradient(to bottom, #FD5E53, #FFC0CB);
         }
-        .cloud::before, .cloud::after {
-            content: '';
-            position: absolute;
-            background: #ffffff;
-            border-radius: 50%;
-        }
-        .cloud-1 {
-            top: 20px; left: 80px; width: 60px; height: 18px;
-        }
-        .cloud-1::before { width: 25px; height: 25px; top: -10px; left: 10px; }
-        .cloud-1::after { width: 20px; height: 20px; top: -6px; left: 28px; }
 
-        .cloud-2 {
-            top: 35px; left: 380px; width: 80px; height: 22px;
+        #game-container.night {
+            background: linear-gradient(to bottom, #0F2027, #203A43);
         }
-        .cloud-2::before { width: 32px; height: 32px; top: -14px; left: 15px; }
-        .cloud-2::after { width: 24px; height: 24px; top: -8px; left: 38px; }
 
-        /* 멀리 보이는 언덕/산 */
-        .hill {
-            position: absolute;
-            bottom: 15px;
-            width: 200px;
-            height: 60px;
-            background-color: #8ed172;
-            border-radius: 50% 50% 0 0;
-            z-index: 1;
-        }
-        .hill-1 { left: -30px; }
-        .hill-2 { left: 220px; width: 280px; height: 80px; background-color: #7bc45f; }
-        .hill-3 { left: 450px; }
-
-        /* 바닥 (잔디밭) */
+        /* 바닥 땅 */
         #ground {
             position: absolute;
             bottom: 0;
             width: 100%;
-            height: 16px;
-            background-color: #5bb343; /* 풀밭 녹색 */
-            border-top: 3px solid #3e8e2b; /* 짙은 잔디 테두리 */
-            z-index: 5;
+            height: 60px;
+            background: #5c940d;
+            border-top: 6px solid #82c91e;
         }
-        
-        /* --- 커비(Kirby) 디자인 --- */
+
+        /* 커비 캐릭터 */
         #kirby {
             position: absolute;
-            bottom: 16px;
-            left: 50px;
-            width: 40px;
-            height: 40px;
-            background-color: #ffb6c1;
+            bottom: 60px;
+            left: 80px;
+            width: 50px;
+            height: 50px;
+            background-color: #ff9ebb;
+            border: 3px solid #ff4081;
             border-radius: 50%;
-            border: 2px solid #e0738d;
-            box-sizing: border-box;
-            z-index: 10;
+            transition: transform 0.1s;
         }
-        #kirby::before, #kirby::after {
+
+        /* 커비 눈 & 볼터치 디자인 */
+        #kirby::before {
             content: '';
             position: absolute;
-            top: 8px;
-            width: 4px;
-            height: 10px;
-            background-color: #2b3a42;
-            border-radius: 2px;
-        }
-        #kirby::before { left: 20px; }
-        #kirby::after { left: 28px; }
-        
-        .blush {
-            position: absolute;
-            top: 20px;
+            top: 12px;
+            left: 28px;
             width: 6px;
-            height: 4px;
-            background-color: #ff69b4;
+            height: 12px;
+            background: #000;
+            border-radius: 50%;
+            box-shadow: -14px 0 0 #000;
+        }
+
+        #kirby::after {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 32px;
+            width: 8px;
+            height: 6px;
+            background: #ff1744;
+            border-radius: 50%;
+            box-shadow: -22px 0 0 #ff1744;
+        }
+
+        /* 커비 상태 연출 */
+        .duck {
+            height: 30px !important;
+            border-radius: 20px !important;
+        }
+
+        .invincible {
+            animation: rainbow 0.2s infinite;
+        }
+
+        .blink {
+            opacity: 0.4;
+        }
+
+        @keyframes rainbow {
+            0% { background-color: #ff9ebb; }
+            33% { background-color: #fff176; }
+            66% { background-color: #81d4fa; }
+            100% { background-color: #ff9ebb; }
+        }
+
+        /* 장애물 & 아이템 공통 */
+        .entity {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        .obstacle-ground {
+            bottom: 60px;
+            width: 35px;
+            height: 45px;
+            background-color: #795548;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .obstacle-air {
+            bottom: 130px;
+            width: 40px;
+            height: 30px;
+            background-color: #d32f2f;
             border-radius: 50%;
         }
-        .blush-left { left: 16px; }
-        .blush-right { left: 31px; }
 
-        .feet {
-            position: absolute;
-            bottom: -4px;
-            left: 6px;
-            width: 24px;
-            height: 8px;
-            background-color: #d11a45;
-            border-radius: 10px;
-            z-index: -1;
-        }
-
-        /* --- 장애물 디자인 --- */
-        .obstacle {
-            position: absolute;
-            box-sizing: border-box;
-            z-index: 10;
-        }
-        
-        /* 지상 장애물 (버섯) */
-        .ground-obstacle {
-            bottom: 16px;
+        .item-candy {
             width: 30px;
             height: 30px;
-            background-color: #f00;
-            border-radius: 50% 50% 10% 10%;
-            border: 2px solid #a00;
-        }
-        .ground-obstacle::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 7px;
-            width: 12px;
-            height: 12px;
-            background-color: #fff;
-            border: 2px solid #ccc;
-            border-radius: 2px;
-        }
-        .ground-obstacle::before {
-            content: '';
-            position: absolute;
-            top: 5px;
-            left: 7px;
-            width: 12px;
-            height: 12px;
-            background-color: #fff;
             border-radius: 50%;
-        }
-        
-        /* 공중 장애물 (드래곤) */
-        .air-obstacle {
-            bottom: 80px;
-            width: 40px;
-            height: 30px;
-            background-color: #444;
-            border: 2px solid #222;
-            border-radius: 10% 10% 50% 50%;
-        }
-        .air-obstacle::after {
-            content: '';
-            position: absolute;
-            top: -10px;
-            left: 5px;
-            width: 15px;
-            height: 15px;
-            background-color: #f00;
-            border-radius: 50%;
-        }
-        .air-obstacle::before {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 10px;
-            width: 20px;
-            height: 5px;
-            background-color: #444;
-            border-radius: 2px;
+            background: #ff4081;
         }
 
-        #score-board {
+        .item-star {
+            width: 35px;
+            height: 35px;
+        }
+
+        /* HUD 및 안내 화면 */
+        #hud {
             position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 16px;
+            top: 15px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 20px;
             font-weight: bold;
-            color: #2d5a27;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+            z-index: 10;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             z-index: 20;
         }
-        #heart-board {
-            position: absolute;
-            top: 10px;
-            left: 15px;
-            font-size: 20px;
-            color: #f00;
-            z-index: 20;
+
+        #overlay h1 {
+            font-size: 42px;
+            color: #ff9ebb;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 5px #000;
         }
-        #game-over {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+
+        #overlay p {
+            font-size: 18px;
+            margin-bottom: 25px;
+            line-height: 1.6;
             text-align: center;
-            color: #2d5a27;
-            z-index: 30;
-            background-color: rgba(255, 255, 255, 0.85);
-            padding: 15px 25px;
-            border-radius: 8px;
-            border: 2px solid #2d5a27;
         }
-        #game-over h2 {
-            margin: 0 0 10px 0;
+
+        .btn {
+            padding: 12px 30px;
             font-size: 20px;
+            font-weight: bold;
+            background-color: #ff4081;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        #game-over p {
-            margin: 0;
-            font-size: 12px;
+
+        .btn:hover {
+            transform: scale(1.05);
+            background-color: #f50057;
         }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <!-- 초원 배경 요소들 -->
-    <div class="cloud cloud-1"></div>
-    <div class="cloud cloud-2"></div>
-    <div class="hill hill-1"></div>
-    <div class="hill hill-2"></div>
-    <div class="hill hill-3"></div>
+    <div id="game-container">
+        <div id="hud">
+            <div>체력: <span id="lives">❤️❤️❤️</span></div>
+            <div>점수: <span id="score">0</span> | 최고: <span id="high-score">0</span></div>
+        </div>
 
-    <!-- 인터페이스 및 캐릭터 -->
-    <div id="heart-board"><span id="hearts">❤️❤️</span></div>
-    <div id="score-board">SCORE: <span id="score">0</span></div>
-    
-    <div id="kirby">
-        <div class="blush blush-left"></div>
-        <div class="blush blush-right"></div>
-        <div class="feet"></div>
+        <div id="kirby"></div>
+        <div id="ground"></div>
+
+        <div id="overlay">
+            <h1 id="overlay-title">커비 점프 디럭스</h1>
+            <p id="overlay-desc">
+                [Space] / [↑] : 점프 (공중 2단 점프 가능)<br>
+                [↓] : 엎드리기 (공중 장애물 회피)
+            </p>
+            <button class="btn" id="start-btn" onclick="startGame()">게임 시작</button>
+        </div>
     </div>
-    
-    <div id="obstacle" class="obstacle ground-obstacle"></div>
-    <div id="ground"></div>
-    <div id="game-over">
-        <h2>G A M E  O V E R</h2>
-        <p>스페이스바를 눌러 다시 시작하세요</p>
-    </div>
-</div>
 
-<script>
-    const kirby = document.getElementById("kirby");
-    const obstacle = document.getElementById("obstacle");
-    const scoreElement = document.getElementById("score");
-    const heartsElement = document.getElementById("hearts");
-    const gameOverElement = document.getElementById("game-over");
+    <script>
+        // 오디오 효과음 생성기 (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
-    let isJumping = false;
-    let isGameOver = false;
-    let score = 0;
-    let hearts = 2;
-    let gameSpeed = 5;
-    let obstaclePosition = 600;
-    let gameLoop;
+            const now = audioCtx.currentTime;
 
-    function jump() {
-        if (isJumping || isGameOver) return;
-        isJumping = true;
-        let jumpHeight = 0;
-        
-        let upInterval = setInterval(function() {
-            if (jumpHeight >= 110) {
-                clearInterval(upInterval);
-                let downInterval = setInterval(function() {
-                    if (jumpHeight <= 0) {
-                        clearInterval(downInterval);
-                        isJumping = false;
+            if (type === 'jump') {
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'item') {
+                osc.frequency.setValueAtTime(523, now); // C5
+                osc.frequency.setValueAtTime(659, now + 0.08); // E5
+                osc.frequency.setValueAtTime(783, now + 0.16); // G5
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'hit') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(60, now + 0.2);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+        }
+
+        // 게임 변수
+        const container = document.getElementById('game-container');
+        const kirby = document.getElementById('kirby');
+        const livesEl = document.getElementById('lives');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('high-score');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayDesc = document.getElementById('overlay-desc');
+
+        let isPlaying = false;
+        let score = 0;
+        let highScore = localStorage.getItem('kirby_high_score') || 0;
+        highScoreEl.textContent = highScore;
+
+        let lives = 3;
+        let positionY = 0;
+        let velocityY = 0;
+        let gravity = 0.8;
+        let jumpCount = 0;
+        let isDucking = false;
+        let isInvincible = false;
+        let isBlinking = false;
+
+        let entities = [];
+        let gameLoopId;
+        let spawnTimer = 0;
+
+        // 키보드 조작 이벤트
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (isPlaying && jumpCount < 2) {
+                    velocityY = 13;
+                    jumpCount++;
+                    playSound('jump');
+                }
+            }
+            if (e.code === 'ArrowDown') {
+                keys['ArrowDown'] = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown') {
+                keys['ArrowDown'] = false;
+            }
+        });
+
+        function startGame() {
+            // 초기화
+            isPlaying = true;
+            score = 0;
+            lives = 3;
+            positionY = 0;
+            velocityY = 0;
+            jumpCount = 0;
+            isInvincible = false;
+            isBlinking = false;
+            
+            entities.forEach(e => e.el.remove());
+            entities = [];
+
+            updateHUD();
+            overlay.style.display = 'none';
+
+            gameLoop();
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            // 1. 커비 물리 엔진 & 상태
+            if (keys['ArrowDown'] && positionY === 0) {
+                isDucking = true;
+                kirby.classList.add('duck');
+            } else {
+                isDucking = false;
+                kirby.classList.remove('duck');
+            }
+
+            velocityY -= gravity;
+            positionY += velocityY;
+
+            if (positionY <= 0) {
+                positionY = 0;
+                velocityY = 0;
+                jumpCount = 0;
+            }
+
+            kirby.style.bottom = (60 + positionY) + 'px';
+
+            // 2. 점수 상승 & 테마 변경
+            score++;
+            scoreEl.textContent = score;
+
+            if (score > 1000) {
+                container.className = 'night';
+            } else if (score > 500) {
+                container.className = 'sunset';
+            } else {
+                container.className = '';
+            }
+
+            // 3. 엔티티(장애물/아이템) 생성
+            spawnTimer++;
+            if (spawnTimer > 80 + Math.random() * 60) {
+                spawnEntity();
+                spawnTimer = 0;
+            }
+
+            // 4. 엔티티 이동 및 충돌 처리
+            const kirbyRect = kirby.getBoundingClientRect();
+
+            for (let i = entities.length - 1; i >= 0; i--) {
+                const ent = entities[i];
+                ent.x -= ent.speed;
+                ent.el.style.left = ent.x + 'px';
+
+                const entRect = ent.el.getBoundingClientRect();
+
+                // 충돌 판정 (여백을 두어 약간 더 부드럽게)
+                const isColliding = !(
+                    kirbyRect.right - 8 < entRect.left ||
+                    kirbyRect.left + 8 > entRect.right ||
+                    kirbyRect.bottom - 5 < entRect.top ||
+                    kirbyRect.top + 5 > entRect.bottom
+                );
+
+                if (isColliding) {
+                    if (ent.type === 'candy') {
+                        score += 100;
+                        playSound('item');
+                        ent.el.remove();
+                        entities.splice(i, 1);
+                        continue;
+                    } else if (ent.type === 'star') {
+                        setInvincible(5000);
+                        playSound('item');
+                        ent.el.remove();
+                        entities.splice(i, 1);
+                        continue;
+                    } else if (ent.type === 'obstacle') {
+                        if (!isInvincible && !isBlinking) {
+                            handleHit();
+                        }
                     }
-                    jumpHeight -= 5;
-                    kirby.style.bottom = (16 + jumpHeight) + "px";
-                }, 12);
+                }
+
+                // 화면 밖으로 나가면 삭제
+                if (ent.x < -50) {
+                    ent.el.remove();
+                    entities.splice(i, 1);
+                }
             }
-            jumpHeight += 6;
-            kirby.style.bottom = (16 + jumpHeight) + "px";
-        }, 12);
-    }
 
-    function respawnObstacle() {
-        obstaclePosition = 600 + Math.random() * 150;
-        const isAir = Math.random() > 0.5;
-        if (isAir) {
-            obstacle.className = "obstacle air-obstacle";
-        } else {
-            obstacle.className = "obstacle ground-obstacle";
-        }
-    }
-
-    function checkCollision() {
-        const kirbyRect = kirby.getBoundingClientRect();
-        const obstacleRect = obstacle.getBoundingClientRect();
-        const margin = 5; 
-        return !(
-            kirbyRect.right - margin < obstacleRect.left ||
-            kirbyRect.left + margin > obstacleRect.right ||
-            kirbyRect.bottom - margin < obstacleRect.top ||
-            kirbyRect.top + margin > obstacleRect.bottom
-        );
-    }
-
-    function updateGame() {
-        if (isGameOver) return;
-
-        if (gameSpeed < 16) {
-            gameSpeed += 0.003;
+            gameLoopId = requestAnimationFrame(gameLoop);
         }
 
-        obstaclePosition -= gameSpeed;
-        if (obstaclePosition < -40) {
-            respawnObstacle();
-            score += 10;
-            scoreElement.innerText = Math.floor(score);
-        }
-        obstacle.style.right = (600 - obstaclePosition) + "px";
+        function spawnEntity() {
+            const rand = Math.random();
+            const el = document.createElement('div');
+            el.className = 'entity';
 
-        if (checkCollision()) {
-            hearts--;
-            heartsElement.innerText = "❤️".repeat(hearts);
-            if (hearts <= 0) {
-                endGame();
+            let type = 'obstacle';
+            let speed = 6 + Math.min(score / 300, 6); // 점수가 높을수록 가속
+
+            if (rand < 0.4) {
+                // 지상 장애물
+                el.classList.add('obstacle-ground');
+                el.textContent = '🌵';
+            } else if (rand < 0.7) {
+                // 공중 장애물 (엎드려서 피함)
+                el.classList.add('obstacle-air');
+                el.textContent = '🦇';
+            } else if (rand < 0.88) {
+                // 사탕 (점수 아이템)
+                type = 'candy';
+                el.classList.add('item-candy');
+                el.style.bottom = (80 + Math.random() * 80) + 'px';
+                el.textContent = '🍬';
             } else {
-                respawnObstacle();
+                // 별 (무적 아이템)
+                type = 'star';
+                el.classList.add('item-star');
+                el.style.bottom = (100 + Math.random() * 60) + 'px';
+                el.textContent = '⭐';
             }
+
+            el.style.left = '800px';
+            container.appendChild(el);
+
+            entities.push({ el, x: 800, speed, type });
         }
-    }
 
-    function endGame() {
-        isGameOver = true;
-        gameOverElement.style.display = "block";
-        clearInterval(gameLoop);
-    }
+        function setInvincible(duration) {
+            isInvincible = true;
+            kirby.classList.add('invincible');
+            setTimeout(() => {
+                isInvincible = false;
+                kirby.classList.remove('invincible');
+            }, duration);
+        }
 
-    function resetGame() {
-        isGameOver = false;
-        score = 0;
-        hearts = 2;
-        gameSpeed = 5;
-        scoreElement.innerText = score;
-        heartsElement.innerText = "❤️❤️";
-        gameOverElement.style.display = "none";
-        kirby.style.bottom = "16px";
-        respawnObstacle();
-        gameLoop = setInterval(updateGame, 20);
-    }
+        function handleHit() {
+            lives--;
+            playSound('hit');
+            updateHUD();
 
-    document.addEventListener("keydown", function(event) {
-        if (event.code === "Space" || event.code === "ArrowUp") {
-            event.preventDefault();
-            if (isGameOver) {
-                resetGame();
+            if (lives <= 0) {
+                gameOver();
             } else {
-                jump();
+                // 피격 후 잠시 무적(깜빡임)
+                isBlinking = true;
+                kirby.classList.add('blink');
+                setTimeout(() => {
+                    isBlinking = false;
+                    kirby.classList.remove('blink');
+                }, 1500);
             }
         }
-    });
 
-    gameLoop = setInterval(updateGame, 20);
-</script>
+        function updateHUD() {
+            livesEl.textContent = '❤️'.repeat(Math.max(0, lives));
+        }
 
+        function gameOver() {
+            isPlaying = false;
+            cancelAnimationFrame(gameLoopId);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('kirby_high_score', highScore);
+                highScoreEl.textContent = highScore;
+            }
+
+            overlayTitle.textContent = '게임 오버!';
+            overlayDesc.innerHTML = `최종 점수: <b>${score}</b>점<br>최고 점수: <b>${highScore}</b>점`;
+            document.getElementById('start-btn').textContent = '다시 시작';
+            overlay.style.display = 'flex';
+        }
+    </script>
 </body>
-</html>"""
-
-# 스트림릿 화면에 HTML 컴포넌트 임베딩
-components.html(kirby_game_html, height=250)
-
-st.markdown("---")
-st.markdown("""
-**🎮 게임 조작 및 규칙:**
-- **점프 / 게임 시작**: `Space` 키 또는 `↑` 방향키
-- **시간 지남에 따른 가속**: 게임 진행 시간에 따라 난이도가 상승합니다.
-- **체력(하트)**: 장애물 충돌 시 하트(❤️)가 1개 차감되며 부활합니다.
-- **장애물**: 지상(마리오 버섯), 공중(드래곤) 무작위 등장
-""")
+</html>
